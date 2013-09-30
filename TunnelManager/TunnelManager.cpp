@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/shm.h>
 
 TunnelManager::TunnelManager(int messageQueueID) {
 	msgctl(msgget(messageQueueID, 0666), IPC_RMID, NULL);
@@ -22,6 +23,7 @@ TunnelManager::TunnelManager(int messageQueueID) {
 	std::cout << "\n[Tunnelmanager " << getpid() << "] MessageQueueID: " << this->messageQueueID;
 	currentDirection = 0;
 	inTunnel = 0;
+	sharedMemoryID = shmget(2404, SHARED_MEM_SIZE, IPC_CREAT | 0666);
 
 }
 
@@ -121,7 +123,7 @@ void TunnelManager::run() {
 				currentDirection = 0;
 			}
 		}
-
+		alignToSharedMemory();
 		sleep(1);
 	}
 }
@@ -130,13 +132,39 @@ void TunnelManager::sendSignal(int pid) {
 	char command[30];
 	sprintf(command, "kill -s CONT %d", pid);
 	int err = 0;
-	 err = system(command);
-	if(err != 0){
+	err = system(command);
+	if (err != 0) {
 		std::cout << "\n[KRITISCH] Auto ist im Tunnel verschwunden! Melde Fahrzeug als vermisst!";
 		inTunnel--;
 	}
 
 }
+void TunnelManager::alignToSharedMemory() {
+	void *myPtr;
+
+
+	struct State {
+		long numCars;
+		int direction;
+
+		} ;
+
+	if (sharedMemoryID >= 0) {
+		/* nun holen wir den Speicher */
+		myPtr = shmat(sharedMemoryID, 0, 0);
+		if (myPtr == (char *) -1) {
+			perror("shmat");
+		} else {
+			/* Speicher ist zugreifbar: füllen! */
+
+			State* statePtr = (State*)myPtr;
+			statePtr->direction = currentDirection;
+			statePtr->numCars = inTunnel;
+			shmdt(myPtr);
+			}
+		}
+	}
+
 
 int main(int argc, char **argv) {
 
@@ -146,5 +174,6 @@ int main(int argc, char **argv) {
 
 	while (1)
 		tm->run();
+
 
 }

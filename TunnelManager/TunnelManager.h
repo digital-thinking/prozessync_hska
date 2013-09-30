@@ -8,6 +8,7 @@
 #ifndef TUNNELMANAGER_H_
 #define TUNNELMANAGER_H_
 #define MSG_SIZE 20
+#define SHARED_MEM_SIZE 16
 
 
 
@@ -23,12 +24,13 @@ public:
 	void run();
 
 	private:
+	int sharedMemoryID;
 	int  messageQueueID ;
 	long currentDirection;
 	//TODO SHARED MEMORY
 	int inTunnel;
 
-
+	void alignToSharedMemory();
 	void sendSignal(int pid);
 
 
